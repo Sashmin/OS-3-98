@@ -11,7 +11,7 @@ int numberOfMarkers;
 
 HANDLE* hUnableToProceed;
 HANDLE* hExitThread;
-HANDLE hResumeThread;
+HANDLE* hResumeThread;
 HANDLE hStartEvent;
 
 
@@ -35,7 +35,7 @@ DWORD WINAPI marker(LPVOID lpParam)
 		isMarked[i] = false;
 	}
 
-	HANDLE resumeOrExit[] = {hResumeThread, hExitThread[id-1]};
+	HANDLE resumeOrExit[] = {hResumeThread[id - 1], hExitThread[id - 1]};
 
 	srand(id);
 
@@ -67,10 +67,22 @@ DWORD WINAPI marker(LPVOID lpParam)
 			);
 			SetEvent(hUnableToProceed[id - 1]);
 
-			if (WaitForMultipleObjects(2, resumeOrExit, 0, INFINITE) == WAIT_OBJECT_0 + 1) 
+			Sleep(100);
+
+			DWORD waitResult = WaitForMultipleObjects(2, resumeOrExit, 0, INFINITE);
+			if (waitResult == WAIT_OBJECT_0 + 1) 
+			{
+				printf("thread %d exited\n", id);
 				break;
+			}
+			else {
+				printf("thread %d resumed\n", id);
+			}
+			
+
 		}
 	}
+	SetEvent(hUnableToProceed[id - 1]);
 
 	EnterCriticalSection(&critSection);
 	for (int i = 0; i < numArrayLength; i++)
@@ -113,7 +125,7 @@ int main()
 	{
 		hUnableToProceed[i] = CreateEvent(
 			nullptr,
-			false,
+			true,
 			false,
 			nullptr
 		);
@@ -123,18 +135,17 @@ int main()
 			false,
 			nullptr
 		);
+		hResumeThread[i] = CreateEvent(
+			nullptr,
+			false,
+			false,
+			nullptr
+		);
 	}
-
-	hResumeThread = CreateEvent(
-		nullptr,
-		false,
-		false,
-		nullptr
-	);
 
 	hStartEvent = CreateEvent(
 		nullptr,
-		false,
+		true,
 		false,
 		nullptr
 	);
@@ -154,32 +165,49 @@ int main()
 		);
 	}
 
+	Sleep(200);
+
 	SetEvent(hStartEvent);
-	CloseHandle(hStartEvent);
 
 	for (int i = 0; i < numberOfMarkers; i++) 
 	{
-		WaitForMultipleObjects(numberOfMarkers, hUnableToProceed, 1, INFINITE);
+		WaitForMultipleObjects(numberOfMarkers, hUnableToProceed, true, INFINITE);
+		printf("hh\n");
+
+		for (int i = 0; i < numberOfMarkers; i++) {
+			if (isClosed[i] != true) {
+				ResetEvent(hUnableToProceed[i]);
+			}
+		}
 
 		int toBeClosedID = 0;
 		while (true)
 		{
 			printf("Enter the number of the thread to be closed: ");
-			scanf_s("%d", toBeClosedID);
+			scanf_s("%d", &toBeClosedID);
 
+			if (toBeClosedID > numberOfMarkers || toBeClosedID <= 0) {
+				printf("\tInvalid number\n");
+				continue;
+			}
 			if (isClosed[toBeClosedID - 1] == true) {
-				printf("This thread is already closed\n");
+				printf("\tThis thread is already closed\n");
 				continue;
 			}
 
 			break;
 		}
 
+
 		SetEvent(hExitThread[toBeClosedID - 1]);
 		isClosed[toBeClosedID - 1] = true;
 		CloseHandle(hMarkers[toBeClosedID - 1]);
-		SetEvent(hResumeThread);
+		for (int i = 0; i < numberOfMarkers; i++) {
+			SetEvent(hResumeThread[i]);
+		}
 	}
+
+	CloseHandle(hStartEvent);
 
 	for (int i = 0; i < numberOfMarkers; i++)
 	{
@@ -194,5 +222,5 @@ int main()
 	delete[] hMarkers;
 	delete[] isClosed;
 
-		
+	return 0;
 }
