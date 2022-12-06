@@ -13,6 +13,7 @@ HANDLE* hUnableToProceed;
 HANDLE* hExitThread;
 HANDLE* hResumeThread;
 HANDLE hStartEvent;
+HANDLE hClearedArrayEvent;
 
 
 
@@ -70,15 +71,9 @@ DWORD WINAPI marker(LPVOID lpParam)
 			Sleep(100);
 
 			DWORD waitResult = WaitForMultipleObjects(2, resumeOrExit, 0, INFINITE);
-			if (waitResult == WAIT_OBJECT_0 + 1) 
-			{
-				printf("thread %d exited\n", id);
+			if (waitResult == WAIT_OBJECT_0 + 1) {
 				break;
 			}
-			else {
-				printf("thread %d resumed\n", id);
-			}
-			
 
 		}
 	}
@@ -92,6 +87,8 @@ DWORD WINAPI marker(LPVOID lpParam)
 		}
 	}
 	LeaveCriticalSection(&critSection);
+
+	SetEvent(hClearedArrayEvent);
 
 	return 0;
 
@@ -114,6 +111,7 @@ int main()
 	hUnableToProceed = new HANDLE[numberOfMarkers];
 	hExitThread = new HANDLE[numberOfMarkers];
 	hResumeThread = new HANDLE[numberOfMarkers];
+
 
 	bool* isClosed = new bool[numberOfMarkers];
 	for (int i = 0; i < numberOfMarkers; i++)
@@ -149,6 +147,12 @@ int main()
 		false,
 		nullptr
 	);
+	hClearedArrayEvent = CreateEventW(
+		nullptr,
+		false,
+		false,
+		nullptr
+	);
 
 	InitializeCriticalSection(&critSection);
 
@@ -172,7 +176,8 @@ int main()
 	for (int i = 0; i < numberOfMarkers; i++) 
 	{
 		WaitForMultipleObjects(numberOfMarkers, hUnableToProceed, true, INFINITE);
-		printf("hh\n");
+
+		printf("\n");
 
 		for (int i = 0; i < numberOfMarkers; i++) {
 			if (isClosed[i] != true) {
@@ -198,8 +203,22 @@ int main()
 			break;
 		}
 
+		printf("Array:         ");
+		for (int i = 0; i < numArrayLength; i++) {
+			printf("%d ", numArray[i]);
+		}
+		printf("\n");
 
 		SetEvent(hExitThread[toBeClosedID - 1]);
+		WaitForSingleObject(hClearedArrayEvent, INFINITE);
+
+		printf("Cleared array: ");
+		for (int i = 0; i < numArrayLength; i++) {
+			printf("%d ", numArray[i]);
+		}
+		printf("\n");
+		printf("\n");
+
 		isClosed[toBeClosedID - 1] = true;
 		CloseHandle(hMarkers[toBeClosedID - 1]);
 		for (int i = 0; i < numberOfMarkers; i++) {
