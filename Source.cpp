@@ -236,10 +236,11 @@ int main()
 	DeleteCriticalSection(&critSection);
 
 	delete[] numArray;
-	delete[] hUnableToProceed;
-	delete[] hExitThread;
 	delete[] hMarkers;
 	delete[] isClosed;
+	delete[] hUnableToProceed;
+	delete[] hExitThread;
+	delete[] hResumeThread;
 
 	return 0;
 }
